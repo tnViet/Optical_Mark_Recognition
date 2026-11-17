@@ -6,7 +6,7 @@ import csv
 import cv2
 import numpy as np
 import streamlit as st
-from cau_hinh import NGUONG_TO, CHU, DANH_SACH_MAU
+from cau_hinh import NGUONG_TO, DANH_SACH_MAU
 
 # ---------------- Giao dien ----------------
 st.title("Hệ thống chấm bài trắc nghiệm")
@@ -16,30 +16,72 @@ for ten in DANH_SACH_MAU:
     cac_ten_mau.append(ten)
 ten_mau = st.selectbox("Chọn mẫu phiếu", cac_ten_mau)
 mau = DANH_SACH_MAU[ten_mau]
-
-SO_CAU_PHIEU = mau["so_cau"]
+cac_phan = mau["cac_phan"]
+cac_nhom = mau["cac_nhom"]
 RONG = mau["rong"]
 CAO = mau["cao"]
 BAN_KINH = mau["ban_kinh"]
-BAN_KINH_SO = mau["ban_kinh_so"]
 
-dap_an = st.text_input("Nhập đáp án (tối đa " + str(SO_CAU_PHIEU) + " chữ viết liền, ví dụ ABCDABCD...)")
-dap_an = dap_an.upper().replace(" ", "")
+# Moi phan 1 o nhap dap an
+cac_chuoi_dap_an = []
+for phan in cac_phan:
+    if phan["loai"] == "abcd":
+        nhan_o = "Đáp án " + phan["ten"] + " (tối đa " + str(phan["so_cau"]) + " chữ ABCD viết liền, ví dụ ABCDABCD)"
+    elif phan["loai"] == "dung_sai":
+        nhan_o = "Đáp án " + phan["ten"] + " (mỗi câu 4 chữ D/S, cách nhau dấu cách, ví dụ DSDS DDSS)"
+    else:
+        nhan_o = "Đáp án " + phan["ten"] + " (mỗi câu 1 số, cách nhau dấu cách, ví dụ -1,5 12 0,25)"
+    cac_chuoi_dap_an.append(st.text_input(nhan_o))
+
 cac_file = st.file_uploader("Chọn ảnh phiếu (chọn được nhiều ảnh)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 luu_buoc = st.checkbox("Lưu ảnh từng bước vào thư mục buoc_trung_gian")
 bam_cham = st.button("Chấm bài")
 
 if bam_cham:
-    # ---------------- Kiem tra dau vao ----------------
-    # De co the it cau hon phieu: chi cham so cau bang do dai dap an
-    SO_CAU = len(dap_an)
-    if SO_CAU == 0 or SO_CAU > SO_CAU_PHIEU:
-        st.error("Đáp án phải có từ 1 đến " + str(SO_CAU_PHIEU) + " chữ, đang có " + str(SO_CAU))
-        st.stop()
-    for c in dap_an:
-        if c not in CHU:
-            st.error("Đáp án chỉ được chứa các chữ " + "".join(CHU) + ", gặp chữ: " + c)
+    # ---------------- Doc va kiem tra dap an ----------------
+    # dap_an[p] la danh sach dap an tung cau cua phan p. Phan de trong thi khong cham.
+    dap_an = []
+    for p in range(len(cac_phan)):
+        phan = cac_phan[p]
+        chuoi = cac_chuoi_dap_an[p].upper().replace("Đ", "D").replace(".", ",")
+        ds = []
+        if phan["loai"] == "abcd":
+            for c in chuoi.replace(" ", ""):
+                if c not in "ABCD":
+                    st.error(phan["ten"] + ": chỉ được dùng chữ A B C D, gặp: " + c)
+                    st.stop()
+                ds.append(c)
+        elif phan["loai"] == "dung_sai":
+            for tu in chuoi.split():
+                if len(tu) != 4:
+                    st.error(phan["ten"] + ": mỗi câu phải có đúng 4 chữ D/S, gặp: " + tu)
+                    st.stop()
+                for c in tu:
+                    if c not in "DS":
+                        st.error(phan["ten"] + ": chỉ được dùng chữ D S, gặp: " + c)
+                        st.stop()
+                ds.append(tu)
+        else:
+            for tu in chuoi.split():
+                if len(tu) > 4:
+                    st.error(phan["ten"] + ": mỗi số tối đa 4 ký tự, gặp: " + tu)
+                    st.stop()
+                for c in tu:
+                    if c not in "-,0123456789":
+                        st.error(phan["ten"] + ": số chỉ gồm dấu -, dấu phẩy và chữ số, gặp: " + c)
+                        st.stop()
+                ds.append(tu)
+        if len(ds) > phan["so_cau"]:
+            st.error(phan["ten"] + ": phiếu chỉ có " + str(phan["so_cau"]) + " câu, đáp án đang có " + str(len(ds)))
             st.stop()
+        dap_an.append(ds)
+
+    tong_so_cau = 0
+    for ds in dap_an:
+        tong_so_cau += len(ds)
+    if tong_so_cau == 0:
+        st.error("Chưa nhập đáp án")
+        st.stop()
     if len(cac_file) == 0:
         st.error("Chưa chọn ảnh nào")
         st.stop()
@@ -48,48 +90,32 @@ if bam_cham:
     if luu_buoc:
         os.makedirs("buoc_trung_gian", exist_ok=True)
 
-    # ---------------- Danh sach tat ca o tron tren phieu ----------------
-    # Moi o gom: loai ("cau", "sbd", "ma_de"), chi so 1, chi so 2, x, y, ban kinh
-    # Voi "cau": chi so 1 = so thu tu cau (tu 0), chi so 2 = lua chon (0..3)
-    # Voi "sbd", "ma_de": chi so 1 = cot, chi so 2 = chu so (0..9)
-    o_loai = []
-    o_a = []
-    o_b = []
+    # ---------------- Danh sach o can do ----------------
+    # Chi lay nhom cua cau co dap an, va nhom so bao danh, ma de
+    # Moi o: chi so nhom, x, y, ban kinh, ky hieu
+    nhom_dung = []
+    for nhom in cac_nhom:
+        if nhom["phan"] < 0 or nhom["cau"] < len(dap_an[nhom["phan"]]):
+            nhom_dung.append(nhom)
+    o_nhom = []
     o_x = []
     o_y = []
     o_r = []
-    for khoi in mau["khoi_cau"]:
-        for dong in range(len(khoi["y"])):
-            cau = khoi["cau_dau"] - 1 + dong
-            if cau >= SO_CAU:
-                continue
-            for j in range(len(CHU)):
-                o_loai.append("cau")
-                o_a.append(cau)
-                o_b.append(j)
-                o_x.append(khoi["x"][j])
-                o_y.append(khoi["y"][dong])
-                o_r.append(BAN_KINH)
-    for cot in range(len(mau["sbd_x"])):
-        for so in range(10):
-            o_loai.append("sbd")
-            o_a.append(cot)
-            o_b.append(so)
-            o_x.append(mau["sbd_x"][cot])
-            o_y.append(mau["sbd_y"][so])
-            o_r.append(BAN_KINH_SO)
-    for cot in range(len(mau["ma_de_x"])):
-        for so in range(10):
-            o_loai.append("ma_de")
-            o_a.append(cot)
-            o_b.append(so)
-            o_x.append(mau["ma_de_x"][cot])
-            o_y.append(mau["ma_de_y"][so])
-            o_r.append(BAN_KINH_SO)
-    SO_O = len(o_loai)
+    o_ky_hieu = []
+    for g in range(len(nhom_dung)):
+        for o in nhom_dung[g]["cac_o"]:
+            o_nhom.append(g)
+            o_x.append(o[0])
+            o_y.append(o[1])
+            o_r.append(o[2])
+            o_ky_hieu.append(o[3])
+    SO_O = len(o_nhom)
 
-    # Moi dong: [ten anh, trang thai, sbd, ma de, so cau dung, so cau, diem, bai lam, cac cau sai]
+    # Moi dong bang diem: ten anh, trang thai, sbd, ma de, (bai lam, diem) cua tung phan, tong diem, cac cau sai
     bang_diem = []
+    dong_loi = []
+    for i in range(len(cac_phan) * 2 + 4):
+        dong_loi.append("")
 
     for file in cac_file:
         ten_anh = file.name
@@ -99,7 +125,7 @@ if bam_cham:
         du_lieu = np.frombuffer(file.read(), dtype=np.uint8)
         anh = cv2.imdecode(du_lieu, cv2.IMREAD_COLOR)
         if anh is None:
-            bang_diem.append([ten_anh, "loi: khong doc duoc anh", "", "", "", "", "", "", ""])
+            bang_diem.append([ten_anh, "loi: khong doc duoc anh"] + dong_loi)
             continue
 
         # Thu nho anh (chieu rong 1000) de tim phieu cho nhanh
@@ -137,7 +163,7 @@ if bam_cham:
             markers.append([dien_tich, cx, cy])
 
         if len(markers) < 4:
-            bang_diem.append([ten_anh, "loi: khong tim du 4 o goc", "", "", "", "", "", "", ""])
+            bang_diem.append([ten_anh, "loi: khong tim du 4 o goc"] + dong_loi)
             continue
 
         # Chi giu cac o vuong lon (o goc to hon cac o vuong nho canh cot cau hoi)
@@ -165,7 +191,7 @@ if bam_cham:
                 duoi_trai = m
 
         if tren_trai == tren_phai or tren_trai == duoi_trai or duoi_phai == tren_phai or duoi_phai == duoi_trai:
-            bang_diem.append([ten_anh, "loi: khong tim du 4 o goc", "", "", "", "", "", "", ""])
+            bang_diem.append([ten_anh, "loi: khong tim du 4 o goc"] + dong_loi)
             continue
 
         # ---------------- Buoc 3: hieu chinh phoi canh ----------------
@@ -200,7 +226,8 @@ if bam_cham:
             tam_y.append(o_y[i])
 
         anh_o = phieu.copy()
-        so_vet_to = 0
+        r_nho = min(o_r)
+        r_lon = max(o_r)
         for k in range(1, so_vung):
             x = stats[k, cv2.CC_STAT_LEFT]
             y = stats[k, cv2.CC_STAT_TOP]
@@ -209,7 +236,7 @@ if bam_cham:
             dien_tich = stats[k, cv2.CC_STAT_AREA]
 
             # Loc theo kich thuoc, do vuong va do dac
-            if w < 1.2 * BAN_KINH_SO or h < 1.2 * BAN_KINH_SO or w > 3 * BAN_KINH or h > 3 * BAN_KINH:
+            if w < 1.2 * r_nho or h < 1.2 * r_nho or w > 3 * r_lon or h > 3 * r_lon:
                 continue
             if w / h < 0.6 or w / h > 1.6:
                 continue
@@ -233,97 +260,154 @@ if bam_cham:
                 continue
             tam_x[o_gan_nhat] = int(round(cx))
             tam_y[o_gan_nhat] = int(round(cy))
-            so_vet_to += 1
             cv2.rectangle(anh_o, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-        # ---------------- Buoc 6: do ti le muc trong tung o ----------------
+        # ---------------- Buoc 6: do ti le muc trong tung o, tim o duoc to ----------------
         # Chi do o vuong nho o giua o tron de khong tinh vien o va chu so in san
-        ti_le_to = []
+        # chon[g] la danh sach ky hieu duoc to trong nhom g
+        chon = []
+        for g in range(len(nhom_dung)):
+            chon.append([])
         for i in range(SO_O):
             nua = int(o_r[i] * 0.6)
             vung = phieu_nguong[tam_y[i] - nua:tam_y[i] + nua, tam_x[i] - nua:tam_x[i] + nua]
-            if vung.size == 0:
-                ti_le_to.append(0)
-            else:
-                ti_le_to.append(cv2.countNonZero(vung) / vung.size)
             cv2.circle(anh_o, (tam_x[i], tam_y[i]), o_r[i], (0, 165, 255), 1)
-
-        # Gom cac o duoc to theo tung cau, tung cot so bao danh, ma de
-        to_cau = []
-        for i in range(SO_CAU):
-            to_cau.append([])
-        to_sbd = []
-        for i in range(len(mau["sbd_x"])):
-            to_sbd.append([])
-        to_ma_de = []
-        for i in range(len(mau["ma_de_x"])):
-            to_ma_de.append([])
-        for i in range(SO_O):
-            if ti_le_to[i] <= NGUONG_TO:
+            if vung.size == 0:
                 continue
-            if o_loai[i] == "cau":
-                to_cau[o_a[i]].append(o_b[i])
-            elif o_loai[i] == "sbd":
-                to_sbd[o_a[i]].append(o_b[i])
-            else:
-                to_ma_de[o_a[i]].append(o_b[i])
+            if cv2.countNonZero(vung) / vung.size > NGUONG_TO:
+                chon[o_nhom[i]].append(o_ky_hieu[i])
 
-        # Bai lam: "-" la bo trong, "X" la to nhieu o
-        bai_lam = ""
-        for cau in range(SO_CAU):
-            if len(to_cau[cau]) == 0:
-                bai_lam = bai_lam + "-"
-            elif len(to_cau[cau]) > 1:
-                bai_lam = bai_lam + "X"
+        # Ket qua moi nhom: "_" la bo trong, "X" la to nhieu o, con lai la ky hieu duoc to
+        ket_qua_nhom = []
+        for g in range(len(nhom_dung)):
+            if len(chon[g]) == 0:
+                ket_qua_nhom.append("_")
+            elif len(chon[g]) > 1:
+                ket_qua_nhom.append("X")
             else:
-                bai_lam = bai_lam + CHU[to_cau[cau][0]]
+                ket_qua_nhom.append(chon[g][0])
 
-        # So bao danh, ma de: "_" la cot bo trong, "X" la cot to nhieu so
+        # ---------------- Buoc 7: ghep bai lam tung cau ----------------
+        # Cau abcd: 1 ky tu. Cau dung/sai: 4 ky tu cho 4 y. Cau dien so: ghep cac cot co to, bo cot trong.
+        bai_lam = []
+        for p in range(len(cac_phan)):
+            ds = []
+            for cau in range(len(dap_an[p])):
+                ds.append("")
+            bai_lam.append(ds)
         sbd = ""
-        for cot in range(len(to_sbd)):
-            if len(to_sbd[cot]) == 0:
-                sbd = sbd + "_"
-            elif len(to_sbd[cot]) > 1:
-                sbd = sbd + "X"
-            else:
-                sbd = sbd + str(to_sbd[cot][0])
         ma_de = ""
-        for cot in range(len(to_ma_de)):
-            if len(to_ma_de[cot]) == 0:
-                ma_de = ma_de + "_"
-            elif len(to_ma_de[cot]) > 1:
-                ma_de = ma_de + "X"
+        for g in range(len(nhom_dung)):
+            nhom = nhom_dung[g]
+            kq = ket_qua_nhom[g]
+            if nhom["phan"] == -1:
+                sbd = sbd + kq
+            elif nhom["phan"] == -2:
+                ma_de = ma_de + kq
+            elif cac_phan[nhom["phan"]]["loai"] == "so":
+                if kq != "_":
+                    bai_lam[nhom["phan"]][nhom["cau"]] += kq
             else:
-                ma_de = ma_de + str(to_ma_de[cot][0])
-
-        # ---------------- Buoc 7: tinh diem va ve ket qua ----------------
-        # Xanh dam: chon dung. Xanh mong: dap an dung ma khong chon. Do: chon sai
-        ket_qua = phieu.copy()
-        so_cau_dung = 0
-        cac_cau_sai = ""
-        for i in range(SO_O):
-            if o_loai[i] != "cau":
+                bai_lam[nhom["phan"]][nhom["cau"]] += kq
+        for p in range(len(cac_phan)):
+            if cac_phan[p]["loai"] != "so":
                 continue
-            cau = o_a[i]
-            j = o_b[i]
-            la_dap_an = CHU[j] == dap_an[cau]
-            da_chon = j in to_cau[cau]
-            if la_dap_an and da_chon:
-                cv2.circle(ket_qua, (o_x[i], o_y[i]), BAN_KINH + 4, (0, 200, 0), 4)
-            elif la_dap_an:
-                cv2.circle(ket_qua, (o_x[i], o_y[i]), BAN_KINH + 4, (0, 200, 0), 2)
-            elif da_chon:
-                cv2.circle(ket_qua, (o_x[i], o_y[i]), BAN_KINH + 4, (0, 0, 255), 4)
-        for cau in range(SO_CAU):
-            if bai_lam[cau] == dap_an[cau]:
-                so_cau_dung += 1
-            else:
-                cac_cau_sai = cac_cau_sai + str(cau + 1) + " "
+            for cau in range(len(bai_lam[p])):
+                if "X" in bai_lam[p][cau]:
+                    bai_lam[p][cau] = "X"
+                if bai_lam[p][cau] == "":
+                    bai_lam[p][cau] = "_"
 
-        diem = round(so_cau_dung * 10 / SO_CAU, 2)
-        chu_diem = "Diem: " + str(diem) + "  (" + str(so_cau_dung) + "/" + str(SO_CAU) + ")"
-        cv2.putText(ket_qua, chu_diem, (RONG // 2 - 250, CAO - 25), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 255), 3)
-        cv2.putText(ket_qua, "SBD: " + sbd + "   Ma de: " + ma_de, (RONG // 2 - 250, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)
+        # ---------------- Buoc 8: tinh diem tung phan ----------------
+        diem_phan = []
+        cau_dung = []
+        cac_cau_sai = ""
+        tong_diem = 0
+        for p in range(len(cac_phan)):
+            phan = cac_phan[p]
+            diem = 0
+            ds_dung = []
+            for cau in range(len(dap_an[p])):
+                dung = False
+                if phan["loai"] == "abcd":
+                    if "diem_moi_cau" in phan:
+                        diem_moi_cau = phan["diem_moi_cau"]
+                    else:
+                        diem_moi_cau = 10 / len(dap_an[p])
+                    if bai_lam[p][cau] == dap_an[p][cau]:
+                        dung = True
+                        diem += diem_moi_cau
+                elif phan["loai"] == "dung_sai":
+                    so_y_dung = 0
+                    for y in range(4):
+                        if bai_lam[p][cau][y] == dap_an[p][cau][y]:
+                            so_y_dung += 1
+                    diem += phan["diem_theo_so_y_dung"][so_y_dung]
+                    if so_y_dung == 4:
+                        dung = True
+                else:
+                    # So sanh chuoi, neu khac thi thu so sanh gia tri (vi du 1,5 va 1,50)
+                    if bai_lam[p][cau] == dap_an[p][cau]:
+                        dung = True
+                    else:
+                        try:
+                            so_bai_lam = float(bai_lam[p][cau].replace(",", "."))
+                            so_dap_an = float(dap_an[p][cau].replace(",", "."))
+                            if abs(so_bai_lam - so_dap_an) < 1e-9:
+                                dung = True
+                        except ValueError:
+                            dung = False
+                    if dung:
+                        diem += phan["diem_moi_cau"]
+                ds_dung.append(dung)
+                if not dung:
+                    if len(cac_phan) > 1:
+                        cac_cau_sai = cac_cau_sai + "P" + str(p + 1) + "."
+                    cac_cau_sai = cac_cau_sai + str(cau + 1) + " "
+            diem = round(diem, 2)
+            diem_phan.append(diem)
+            cau_dung.append(ds_dung)
+            tong_diem += diem
+        tong_diem = round(tong_diem, 2)
+
+        # ---------------- Buoc 9: ve ket qua ----------------
+        # Xanh dam: to dung. Xanh mong: o dung ma khong to. Do: to sai.
+        # Cau dien so: o da to mau xanh neu ca cau dung, mau do neu sai.
+        ket_qua = phieu.copy()
+        for i in range(SO_O):
+            nhom = nhom_dung[o_nhom[i]]
+            p = nhom["phan"]
+            if p < 0:
+                continue
+            ky_hieu = o_ky_hieu[i]
+            da_to = ky_hieu in chon[o_nhom[i]]
+            if cac_phan[p]["loai"] == "so":
+                if da_to and cau_dung[p][nhom["cau"]]:
+                    cv2.circle(ket_qua, (o_x[i], o_y[i]), o_r[i] + 4, (0, 200, 0), 3)
+                elif da_to:
+                    cv2.circle(ket_qua, (o_x[i], o_y[i]), o_r[i] + 4, (0, 0, 255), 3)
+                continue
+            if cac_phan[p]["loai"] == "abcd":
+                la_dap_an = ky_hieu == dap_an[p][nhom["cau"]]
+            else:
+                la_dap_an = ky_hieu == dap_an[p][nhom["cau"]][nhom["phu"]]
+            if la_dap_an and da_to:
+                cv2.circle(ket_qua, (o_x[i], o_y[i]), o_r[i] + 4, (0, 200, 0), 3)
+            elif la_dap_an:
+                cv2.circle(ket_qua, (o_x[i], o_y[i]), o_r[i] + 4, (0, 200, 0), 1)
+            elif da_to:
+                cv2.circle(ket_qua, (o_x[i], o_y[i]), o_r[i] + 4, (0, 0, 255), 3)
+
+        chu_diem = "Diem: " + str(tong_diem)
+        if len(cac_phan) > 1:
+            chu_diem = chu_diem + "  ("
+            for p in range(len(cac_phan)):
+                chu_diem = chu_diem + "P" + str(p + 1) + ": " + str(diem_phan[p])
+                if p < len(cac_phan) - 1:
+                    chu_diem = chu_diem + ", "
+            chu_diem = chu_diem + ")"
+        cv2.putText(ket_qua, chu_diem, (60, CAO - 25), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)
+        cv2.putText(ket_qua, "SBD: " + sbd + "   Ma de: " + ma_de, (RONG // 2 - 250, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)
 
         # Luu anh ket qua va anh tung buoc
         cv2.imwrite("ket_qua/" + ten_khong_duoi + "_ket_qua.jpg", ket_qua)
@@ -339,17 +423,34 @@ if bam_cham:
             cv2.imwrite("buoc_trung_gian/" + ten_khong_duoi + "_buoc4_nguong.jpg", phieu_nguong)
             cv2.imwrite("buoc_trung_gian/" + ten_khong_duoi + "_buoc5_cac_o.jpg", anh_o)
 
-        bang_diem.append([ten_anh, "ok", sbd, ma_de, so_cau_dung, SO_CAU, diem, bai_lam, cac_cau_sai.strip()])
+        # Ghi 1 dong bang diem. Bai lam cau abcd viet lien, cac loai khac cach nhau dau cach
+        dong = [ten_anh, "ok", sbd, ma_de]
+        for p in range(len(cac_phan)):
+            if cac_phan[p]["loai"] == "abcd":
+                dong.append("".join(bai_lam[p]))
+            else:
+                dong.append(" ".join(bai_lam[p]))
+            dong.append(diem_phan[p])
+        dong.append(tong_diem)
+        dong.append(cac_cau_sai.strip())
+        bang_diem.append(dong)
 
         # Hien anh ket qua len giao dien (doi BGR sang RGB)
         st.image(cv2.cvtColor(ket_qua, cv2.COLOR_BGR2RGB), caption=ten_anh + " - " + chu_diem, width=500)
 
     # ---------------- Ghi file diem tong hop ----------------
-    tieu_de = ["ten_anh", "trang_thai", "sbd", "ma_de", "so_cau_dung", "so_cau", "diem", "bai_lam", "cac_cau_sai"]
+    tieu_de = ["ten_anh", "trang_thai", "sbd", "ma_de"]
+    for phan in cac_phan:
+        tieu_de.append("bai_lam " + phan["ten"])
+        tieu_de.append("diem " + phan["ten"])
+    tieu_de.append("tong_diem")
+    tieu_de.append("cac_cau_sai")
+
     f = open("ket_qua/diem.csv", "w", newline="", encoding="utf-8-sig")
     ghi = csv.writer(f)
     ghi.writerow(["mau_phieu", ten_mau])
-    ghi.writerow(["dap_an", dap_an])
+    for p in range(len(cac_phan)):
+        ghi.writerow(["dap_an " + cac_phan[p]["ten"], " ".join(dap_an[p])])
     ghi.writerow(tieu_de)
     for dong in bang_diem:
         ghi.writerow(dong)
