@@ -1,5 +1,32 @@
+# Python
 __pycache__/
 *.pyc
-anh_test/
-ket_qua/
+.venv/
+venv/
+
+
+
+# Anh trung gian va ket qua cua ban cu
 buoc_trung_gian/
+ket_qua/
+anh_test/
+
+# Anh chup phieu: bo qua moi file anh trong du an
+*.jpg
+*.jpeg
+*.JPG
+*.JPEG
+*.heic
+*.HEIC
+*.webp
+*.png
+*.PNG
+# ... tru anh PNG mau phieu (dung de do toa do khi them mau moi)
+!sheets/*.png
+
+# File cua he dieu hanh va trinh soan thao
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

@@ -5,7 +5,6 @@
 NGUONG_TO = 0.5
 
 # Y nghia cac thong so cua moi mau:
-#   file        : anh png cua phieu trong (dung de tao anh test)
 #   rong, cao   : kich thuoc phieu sau khi nan thang
 #   goc         : tam 4 o vuong den o 4 goc: tren trai, tren phai, duoi trai, duoi phai
 #   ban_kinh    : ban kinh o tron cau hoi
@@ -27,7 +26,6 @@ NGUONG_TO = 0.5
 #                y_phay (y cua o dau phay, chi co o cot 2 va 3), y_so (y cua 10 hang so 0..9)
 DANH_SACH_MAU = {
     "Mau 20 cau": {
-        "file": "anh_mau/mau_20.png",
         "rong": 1241,
         "cao": 1754,
         "goc": [[174, 216], [1090, 216], [174, 1568], [1090, 1568]],
@@ -47,7 +45,6 @@ DANH_SACH_MAU = {
         ]
     },
     "Mau 40 cau": {
-        "file": "anh_mau/mau_40.png",
         "rong": 1241,
         "cao": 1754,
         "goc": [[174, 216], [1090, 216], [174, 1568], [1090, 1568]],
@@ -71,7 +68,6 @@ DANH_SACH_MAU = {
         ]
     },
     "Mau 50 cau": {
-        "file": "anh_mau/mau_50.png",
         "rong": 1240,
         "cao": 1753,
         "goc": [[96, 110], [1148, 110], [96, 1666], [1148, 1666]],
@@ -91,7 +87,6 @@ DANH_SACH_MAU = {
         ]
     },
     "Mau 100 cau": {
-        "file": "anh_mau/mau_100.png",
         "rong": 1241,
         "cao": 1754,
         "goc": [[174, 216], [1090, 216], [174, 1568], [1090, 1568]],
@@ -127,7 +122,6 @@ DANH_SACH_MAU = {
         ]
     },
     "Mau 120 cau": {
-        "file": "anh_mau/mau_120.png",
         "rong": 1240,
         "cao": 1753,
         "goc": [[77, 76], [1162, 76], [77, 1677], [1162, 1677]],
@@ -151,7 +145,6 @@ DANH_SACH_MAU = {
         ]
     },
     "Mau THPT 3 phan": {
-        "file": "anh_mau/mau_thpt.png",
         "rong": 1240,
         "cao": 1754,
         "goc": [[78, 76], [1162, 76], [78, 1678], [1162, 1678]],

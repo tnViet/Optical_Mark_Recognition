@@ -1,15 +1,25 @@
 # Hệ thống chấm bài trắc nghiệm
 
-Bài tập lớn môn Xử lý ảnh. Chương trình chấm phiếu trả lời trắc nghiệm từ ảnh chụp hoặc ảnh scan, chỉ dùng các kỹ thuật xử lý ảnh truyền thống (OpenCV + NumPy), không dùng học máy.
+Bài tập lớn môn Xử lý ảnh. Ứng dụng desktop chấm phiếu trả lời trắc nghiệm từ ảnh chụp hoặc ảnh scan, chỉ dùng xử lý ảnh truyền thống (OpenCV + NumPy), không dùng học máy.
 
-## Chức năng
+## Cài đặt và chạy
 
-- Phát hiện phiếu trong ảnh và hiệu chỉnh góc nghiêng, phối cảnh
-- Xác định vị trí các ô đáp án và phát hiện ô được tô
-- Đọc số báo danh (6 chữ số) và mã đề (3 chữ số)
-- Tính điểm và vẽ kết quả lên ảnh: xanh là đúng, đỏ là sai
-- Chấm nhiều ảnh một lần, xuất bảng điểm ra file `diem.csv`
-- Lưu ảnh trung gian của từng bước để minh họa thuật toán
+Yêu cầu Python 3.8 trở lên.
+
+```
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe app.py
+```
+
+## Cách dùng
+
+1. Bấm **+ Tạo kỳ thi**, đặt tên và chọn mẫu phiếu.
+2. Mục **Đề & đáp án**: thêm mã đề (3 số), chọn đáp án trên bảng, bấm **Lưu đáp án**. Bấm vào mã đề ở cột trái để xem lại hoặc sửa. Đáp án tự lưu khi chuyển đề, chuyển mục hoặc đóng ứng dụng.
+3. Mục **Chấm bài**: chọn ảnh, bấm **Chấm bài**. Ứng dụng đọc mã đề trên phiếu và dùng đáp án của mã đề đó. Kỳ thi chỉ có một đề thì dùng luôn đề đó.
+4. Mục **Thống kê**: số phiếu, số lỗi, điểm trung bình, cao nhất, thấp nhất, bảng tất cả lần chấm và nút tải file điểm CSV.
+
+Chấm nhiều lần trong cùng một kỳ thi thì kết quả được gộp vào một file. Một SBD chấm nhiều lần chỉ tính lần mới nhất.
 
 ## Mẫu phiếu hỗ trợ
 
@@ -22,95 +32,52 @@ Bài tập lớn môn Xử lý ảnh. Chương trình chấm phiếu trả lời
 | Mẫu 120 câu | 120 câu ABCD | `Form_120_VI_NOLABEL-BLACK.pdf` |
 | Mẫu THPT 3 phần | Phần I: 12 câu ABCD, Phần II: 4 câu Đúng/Sai, Phần III: 6 câu điền số | `mau_thpt_A4.pdf` |
 
-Các file PDF nằm trong thư mục `anh_mau`. Cần in phiếu đúng khổ A4 và không cắt mất 4 ô vuông đen ở góc.
+Các file PDF nằm trong `sheets`. In đúng khổ A4, không cắt mất 4 ô vuông đen ở góc. Khi chụp, cầm máy song song với mặt giấy và thấy đủ 4 góc.
 
-## Cài đặt
+## Thang điểm
 
-Yêu cầu Python 3.8 trở lên.
+- Mẫu chỉ có câu ABCD: chia đều 10 điểm cho số câu có đáp án.
+- Mẫu THPT: Phần I 0,25 điểm/câu; Phần II đúng 1/2/3/4 ý được 0,1/0,25/0,5/1 điểm; Phần III 0,5 điểm/câu, so sánh theo giá trị (`1,5` và `1,50` như nhau).
+- Câu để trống đáp án thì không chấm.
 
-```
-pip install -r requirements.txt
-```
+## Thuật toán (`grader.py`)
 
-## Sử dụng
+Hàm chính: `grade_image(anh, mau, cac_de)` chấm 1 ảnh, `find_corners(anh, mau)` tìm 4 góc phiếu.
 
-Chạy trong thư mục dự án:
-
-```
-streamlit run app.py
-```
-
-Trình duyệt sẽ mở giao diện chấm bài:
-
-1. Chọn mẫu phiếu
-2. Nhập đáp án
-3. Chọn một hoặc nhiều ảnh phiếu (jpg, png)
-4. Bấm **Chấm bài**
-
-### Cách nhập đáp án
-
-| Loại phần | Cách nhập | Ví dụ |
-|---|---|---|
-| ABCD | Viết liền, không cần đủ số câu trên phiếu | `ABCDABCDAB` |
-| Đúng/Sai | Mỗi câu 4 chữ D/S cho 4 ý a, b, c, d, cách nhau dấu cách | `DSDS DDSS SSDD DSSD` |
-| Điền số | Mỗi câu 1 số, cách nhau dấu cách | `-1,5 12 0,25 3 2025 7` |
-
-Với mẫu THPT, phần nào để trống thì không chấm phần đó.
-
-### Thang điểm
-
-- Mẫu chỉ có câu ABCD: chia đều 10 điểm cho số câu đã nhập đáp án
-- Mẫu THPT:
-  - Phần I: 0,25 điểm/câu
-  - Phần II: đúng 1/2/3/4 ý được 0,1/0,25/0,5/1 điểm
-  - Phần III: 0,5 điểm/câu, so sánh theo giá trị (`1,5` và `1,50` là như nhau)
-
-### Kết quả
-
-- `ket_qua/<tên ảnh>_ket_qua.jpg`: phiếu đã nắn thẳng, có đánh dấu đúng/sai, điểm, số báo danh, mã đề
-- `ket_qua/diem.csv`: bảng điểm tất cả ảnh, gồm bài làm và điểm từng phần, danh sách câu sai
-- `buoc_trung_gian/`: ảnh từng bước xử lý, chỉ lưu khi tích chọn trên giao diện
-
-Ký hiệu trong bài làm: `_` là bỏ trống, `X` là tô nhiều hơn 1 ô.
-
-## Thuật toán
-
-1. **Đọc ảnh**, thu nhỏ về chiều rộng 1000 px để tìm phiếu nhanh hơn.
-2. **Phát hiện phiếu**: chuyển ảnh xám, làm mờ Gaussian, ngưỡng thích nghi (adaptive threshold), tìm contour. Giữ lại các contour gần vuông, 4 đỉnh, bên trong đặc. 4 ô nằm ngoài cùng là 4 góc phiếu.
-3. **Hiệu chỉnh phối cảnh**: tính ma trận biến đổi phối cảnh (perspective transform) từ 4 góc tìm được sang 4 góc của phiếu mẫu, nắn phiếu về đúng kích thước mẫu.
-4. **Nhị phân hóa** phiếu đã nắn bằng ngưỡng thích nghi để chịu được bóng đổ và ánh sáng không đều.
-5. **Tìm vết tô bằng connected components**: các vùng đen đặc có kích thước gần bằng ô tròn được gán vào ô gần nhất, dùng để bù sai lệch nhỏ khi nắn.
-6. **Phát hiện ô được tô**: đo tỉ lệ điểm đen ở phần giữa mỗi ô tròn (bỏ qua viền và chữ số in sẵn). Ô có tỉ lệ lớn hơn `NGUONG_TO` (0,5) là đã tô.
-7. **Ghép bài làm**: mỗi câu ABCD, mỗi ý Đúng/Sai, mỗi cột của câu điền số, mỗi cột số báo danh/mã đề là một nhóm ô chỉ được tô 1 ô.
-8. **Tính điểm** theo từng phần và vẽ kết quả.
+1. **Tìm phiếu** (`find_corners`): thu nhỏ ảnh về rộng 1000 px, ảnh xám, lọc Gaussian, ngưỡng thích nghi, tìm contour. Giữ các contour gần vuông, 4 đỉnh, bên trong đặc; 4 ô ngoài cùng là 4 góc. Kiểm tra tỉ lệ cao/rộng của tứ giác so với phiếu mẫu để báo lỗi ảnh chụp quá nghiêng.
+2. **Hiệu chỉnh phối cảnh**: ma trận phối cảnh từ 4 góc tìm được sang 4 góc của mẫu, nắn phiếu về kích thước mẫu.
+3. **Nhị phân hóa** phiếu đã nắn bằng ngưỡng thích nghi, cửa sổ 4R+1.
+4. **Connected components**: vết tô có kích thước gần bằng ô tròn được gán vào ô gần nhất để bù sai lệch nhỏ khi nắn.
+5. **Phát hiện ô được tô**: tỉ lệ điểm đen ở phần giữa ô lớn hơn `NGUONG_TO` (0,5) là đã tô.
+6. **Ghép bài làm**: mỗi nhóm ô chỉ được tô 1 ô; `_` là bỏ trống, `X` là tô nhiều ô.
+7. **Chọn đáp án theo mã đề, tính điểm, vẽ kết quả**: xanh là đúng, đỏ là sai.
 
 ## Cấu trúc thư mục
 
 ```
 BTL XLA/
-├── app.py              Giao diện Streamlit và toàn bộ các bước chấm
-├── cau_hinh.py         Tọa độ ô và thang điểm của từng mẫu phiếu
-├── tao_anh_test.py     Sinh ảnh test giả lập
+├── app.py              Giao diện desktop (CustomTkinter)
+├── grader.py           Thuật toán chấm phiếu
+├── templates.py        Tọa độ ô và thang điểm của từng mẫu phiếu
+├── fonts/              Font Plus Jakarta Sans (giấy phép OFL) cho giao diện
 ├── requirements.txt
-└── anh_mau/            Phiếu mẫu PDF để in và ảnh PNG 150 dpi để đo tọa độ
+├── sheets/             Phiếu mẫu PDF để in và ảnh PNG 150 dpi để đo tọa độ
+└── exams/              Dữ liệu từng kỳ thi (tạo tự động)
+    └── <tên kỳ thi>/
+        ├── de.json     Mẫu phiếu và đáp án các mã đề
+        ├── diem.csv    Kết quả tất cả các lần chấm
+        └── images/     Ảnh kết quả và ảnh phiếu lỗi
 ```
-
-## Kiểm thử
-
-```
-python tao_anh_test.py
-```
-
-Lệnh trên sinh 3 ảnh cho mỗi mẫu vào thư mục `anh_test`. Mỗi ảnh được tô ngẫu nhiên (có câu bỏ trống, câu tô 2 ô), rồi làm nghiêng, biến dạng phối cảnh, thêm bóng đổ và nhiễu. File `anh_test/bai_lam_that.csv` ghi bài làm thật để so với cột bài làm trong `ket_qua/diem.csv`.
 
 ## Thêm mẫu phiếu mới
 
-1. Đổi file PDF sang ảnh PNG 150 dpi (khổ A4 cho ảnh khoảng 1240 x 1754 px), lưu vào `anh_mau`.
+1. Đổi file PDF sang ảnh PNG 150 dpi (khổ A4 cho ảnh khoảng 1240 x 1754 px), lưu vào `sheets`.
 2. Đo tọa độ tâm 4 ô vuông góc, các ô số báo danh, mã đề và các ô câu hỏi trên ảnh PNG.
-3. Thêm một mục vào `DANH_SACH_MAU` trong `cau_hinh.py`. Ý nghĩa các thông số được ghi ở đầu file.
+3. Thêm một mục vào `DANH_SACH_MAU` trong `templates.py`. Ý nghĩa các thông số được ghi ở đầu file.
 
 ## Hạn chế
 
-- Chưa phát hiện được trường hợp chọn sai mẫu phiếu trên giao diện
-- Phiếu bị gấp, cong nhiều có thể làm lệch vị trí ô vì chỉ nắn theo 4 góc
-- Không đọc số học sinh tự viết tay ở ô phía trên, chỉ đọc phần tô
+- Ảnh chụp nghiêng mạnh (mép xa nhỏ hơn hẳn mép gần) bị báo lỗi, cần chụp lại thẳng hơn.
+- Phiếu xoay ngang hoặc lộn ngược, phiếu bị gấp hay cong nhiều có thể đọc sai.
+- Vết tẩy còn mờ có thể bị tính là ô đã tô.
+- Không đọc số viết tay ở ô phía trên, chỉ đọc phần tô.
